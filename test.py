@@ -1,12 +1,12 @@
-from cProfile import label
-import numpy
 import torch
 from torch.utils.data import DataLoader
 from config import Config
 from data_loader import TestDataset
 from models import Autoencoder
 from utils import *
-import matplotlib.pyplot as plt
+from skimage.segmentation import clear_border
+from skimage.morphology import disk, opening
+import cv2
 
 def test_on_device(cfg):
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -35,16 +35,21 @@ def test_on_device(cfg):
         results = torch.tensor(residual_maps)
 
         image_pred = np.zeros((len(results),cfg.image_size,cfg.image_size), np.float32)
-        image_pred[results >  0.45431541025638575 ] = 1
+        image_pred[results >  0.5050818562507627 ] = 1
 
-        print
+        image_pred = clear_border(image_pred, buffer_size=2)
+
         images.extend(image_batch)
         masks.extend(mask_batch)
         labels.extend(label_batch)
         predictions.extend(image_pred)
+        
     
     evaluate(masks,predictions,labels)
-    
+
+    for x,y_true,y_pred in zip(images,masks,predictions):
+        plot_images(x,y_true,y_pred)
+
 # parse argument variables
 cfg = Config().parse()
 

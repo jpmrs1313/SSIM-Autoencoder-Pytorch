@@ -4,7 +4,6 @@ import matplotlib.pyplot as plt
 from skimage.metrics import structural_similarity as ssim
 import sklearn.metrics as metrics
 from skimage.segmentation import join_segmentations, mark_boundaries
-import segmentation_models as sm
 
 def split_data(dataset):
     """Split data in train 70%, validation 15% and test 15%
@@ -55,9 +54,20 @@ def get_residual_map(batch, model):
     return residual_maps
 
 def plot_images(x,y_true,y_pred):
-  
+    x=x.permute(1,2,0)
+    x=x.cpu().data.numpy()
+    x=np.squeeze(x)
+
+    y_true=y_true.permute(1,2,0)
+    y_true=y_true.cpu().data.numpy()
+    y_true=np.squeeze(y_true)
+    y_true=y_true.astype(int)
+
+    y_pred=y_pred.astype(int)
+
     segj = join_segmentations(y_true,y_pred)
-    
+    boundaries = mark_boundaries(x,y_pred)
+
     fig = plt.figure(figsize=(10, 7))
     rows = 1
     columns = 4
@@ -78,7 +88,7 @@ def plot_images(x,y_true,y_pred):
     plt.axis("off")
 
     fig.add_subplot(rows, columns, 4)
-    plt.imshow(mark_boundaries(x,y_pred))
+    plt.imshow(boundaries)
     plt.title("join")
     plt.axis("off")
 
