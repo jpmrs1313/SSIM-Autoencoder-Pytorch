@@ -1,7 +1,9 @@
+from cProfile import label
+import numpy
 import torch
 from torch.utils.data import DataLoader
 from config import Config
-from data_loader import TrainDataset
+from data_loader import TestDataset
 from models import Autoencoder
 from utils import *
 import matplotlib.pyplot as plt
@@ -11,31 +13,37 @@ def test_on_device(cfg):
 
     image_shape = (cfg.image_size, cfg.image_size, 1)
 
-    train_dataset = TrainDataset(path=cfg.train_data_dir, image_shape=image_shape) 
+    train_dataset = TestDataset(cfg.test_data_dir,cfg.mask_data_dir, image_shape=image_shape) 
     dataloader = DataLoader(train_dataset, batch_size=cfg.batch_size,shuffle=True)
 
     model = Autoencoder().to(device)
     model.load_state_dict(torch.load("model.pckl"))
     model.eval()
 
-    results = []
+    images, masks, predictions, labels = [], [], [], []
     for i_batch, sample_batched in enumerate(dataloader):
-        image_batch = sample_batched["image"].to(device)
-        image_batch = image_batch.float().to(device)
+        image_batch = sample_batched["image"].cuda()
+        image_batch = image_batch.float().cuda()
+
+        mask_batch = sample_batched["mask"].cuda()
+        mask_batch = mask_batch.float().cuda()
+
+        label_batch = sample_batched["label"]
 
         residual_maps = get_residual_map(image_batch,model)    
-        results.extend(residual_maps)
+        residual_maps = np.array(residual_maps) # Creating a tensor from a list of numpy.ndarrays is extremely slow. So i convert the list of numpy.ndarrays to a numpy.ndarrays
+        results = torch.tensor(residual_maps)
 
-    for result in results:
-        image_pred = np.zeros((cfg.image_size,cfg.image_size), np.float32)
-        image_pred[result >  0.45431541025638575 ] = 1
+        image_pred = np.zeros((len(results),cfg.image_size,cfg.image_size), np.float32)
+        image_pred[results >  0.45431541025638575 ] = 1
 
-        x=image_pred
-        plt.imshow(x, cmap="gray")
-        plt.show()
-        
-    print(len(results))
-    print(results[0].shape)
+        print
+        images.extend(image_batch)
+        masks.extend(mask_batch)
+        labels.extend(label_batch)
+        predictions.extend(image_pred)
+    
+    evaluate(masks,predictions,labels)
     
 # parse argument variables
 cfg = Config().parse()
