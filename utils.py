@@ -49,6 +49,7 @@ def get_residual_map(batch, model):
         result = np.squeeze(result)
 
         residual_map = 1 - ssim(image,result, win_size=11, full=True)[1]
+      
         residual_maps.append(residual_map)
 
     return residual_maps

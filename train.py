@@ -33,14 +33,16 @@ def validate_one_step(model,criterion,data):
     return loss
 
 def train_on_device(cfg):
+
     min_valid_loss = np.inf
-    num_epochs=20
+    num_epochs=100
+
     learning_rate = 1e-3
     image_shape = (cfg.image_size, cfg.image_size, 1)
 
     dataset = TrainDataset(path=cfg.train_data_dir, image_shape=image_shape) 
     train_dataset, val_dataset, threshold_dataset = split_data(dataset)
-
+    
     train_dataset = DataLoader(train_dataset, batch_size=cfg.batch_size,shuffle=True)
     validate_dataset = DataLoader(val_dataset, batch_size=cfg.batch_size,shuffle=True)
     threshold_dataset = DataLoader(threshold_dataset, batch_size=cfg.batch_size,shuffle=True)
@@ -64,7 +66,7 @@ def train_on_device(cfg):
         if min_valid_loss > total_validation_loss:
             print('Model saved - validation loss decreased - {:.4f} --> {:.4f}'.format(min_valid_loss, total_validation_loss))
             min_valid_loss = total_validation_loss
-            torch.save(model.state_dict(), "model.pckl")
+            torch.save(model.state_dict(), "model_neadvance.pckl")
         
         print('epoch [{}/{}], loss:{:.4f}'.format(epoch+1, num_epochs, total_train_loss))
 

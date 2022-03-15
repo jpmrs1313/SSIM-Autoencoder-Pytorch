@@ -9,15 +9,13 @@ from skimage.morphology import disk, opening
 import cv2
 
 def test_on_device(cfg):
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-
     image_shape = (cfg.image_size, cfg.image_size, 1)
 
-    train_dataset = TestDataset(cfg.test_data_dir,cfg.mask_data_dir, image_shape=image_shape) 
-    dataloader = DataLoader(train_dataset, batch_size=cfg.batch_size,shuffle=True)
+    test_dataset = TestDataset(cfg.test_data_dir,cfg.mask_data_dir, image_shape=image_shape) 
+    dataloader = DataLoader(test_dataset, batch_size=cfg.batch_size,shuffle=True)
 
-    model = Autoencoder().to(device)
-    model.load_state_dict(torch.load("model.pckl"))
+    model = Autoencoder().cuda()
+    model.load_state_dict(torch.load("model_neadvance.pckl"))
     model.eval()
 
     images, masks, predictions, labels = [], [], [], []
@@ -26,7 +24,7 @@ def test_on_device(cfg):
         image_batch = image_batch.float().cuda()
 
         mask_batch = sample_batched["mask"].cuda()
-        mask_batch = mask_batch.float().cuda()
+        mask_batch = mask_batch.float.cuda()
 
         label_batch = sample_batched["label"]
 
@@ -34,17 +32,16 @@ def test_on_device(cfg):
         residual_maps = np.array(residual_maps) # Creating a tensor from a list of numpy.ndarrays is extremely slow. So i convert the list of numpy.ndarrays to a numpy.ndarrays
         results = torch.tensor(residual_maps)
 
-        image_pred = np.zeros((len(results),cfg.image_size,cfg.image_size), np.float32)
-        image_pred[results >  0.5050818562507627 ] = 1
+        ssim_results = np.zeros((len(results),cfg.image_size,cfg.image_size), np.float32)
+        ssim_results[results >  0.7147958290576943 ] = 1
 
-        image_pred = clear_border(image_pred, buffer_size=2)
+        image_pred = clear_border(ssim_results, buffer_size=2)
 
         images.extend(image_batch)
         masks.extend(mask_batch)
         labels.extend(label_batch)
         predictions.extend(image_pred)
         
-    
     evaluate(masks,predictions,labels)
 
     for x,y_true,y_pred in zip(images,masks,predictions):
