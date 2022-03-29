@@ -3,11 +3,13 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 class Autoencoder(nn.Module):
-    def __init__(self):
+    def __init__(self, n_channels):
         super().__init__()        
-   
+
+
+
         self.encoder = nn.Sequential(
-            nn.Conv2d(1, 32, 4, stride=2, padding=1), 
+            nn.Conv2d(n_channels, 32, 4, stride=2, padding=1), 
             nn.LeakyReLU(0.2),
             nn.Conv2d(32, 32, 4, stride=2, padding=1), 
             nn.LeakyReLU(0.2),
@@ -44,7 +46,7 @@ class Autoencoder(nn.Module):
             nn.LeakyReLU(0.2),
             nn.ConvTranspose2d(32, 32, 4, stride=2, padding=1),  
             nn.LeakyReLU(0.2),
-            nn.ConvTranspose2d(32, 1, 4, stride=2, padding=1), 
+            nn.ConvTranspose2d(32, n_channels, 4, stride=2, padding=1), 
             nn.Sigmoid()
         )
 

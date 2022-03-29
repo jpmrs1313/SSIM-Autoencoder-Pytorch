@@ -35,10 +35,18 @@ def validate_one_step(model,criterion,data):
 def train_on_device(cfg):
 
     min_valid_loss = np.inf
-    num_epochs=100
 
     learning_rate = 1e-3
-    image_shape = (cfg.image_size, cfg.image_size, 1)
+    if cfg.grayscale=="True":
+        print("grey scale")
+        image_shape = (cfg.image_size, cfg.image_size, 1)
+        n_channels=1
+    else:     
+        print("color scale")
+        image_shape = (cfg.image_size, cfg.image_size, 3)
+        n_channels=3
+
+    print(image_shape)
 
     dataset = TrainDataset(path=cfg.train_data_dir, image_shape=image_shape) 
     train_dataset, val_dataset, threshold_dataset = split_data(dataset)
@@ -47,11 +55,11 @@ def train_on_device(cfg):
     validate_dataset = DataLoader(val_dataset, batch_size=cfg.batch_size,shuffle=True)
     threshold_dataset = DataLoader(threshold_dataset, batch_size=cfg.batch_size,shuffle=True)
 
-    model = Autoencoder().cuda()
-    criterion = SSIM()
+    model = Autoencoder(n_channels).cuda()
+    criterion = SSIM(in_channels=n_channels)
     optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate,weight_decay=1e-5)
 
-    for epoch in range(num_epochs):
+    for epoch in range(cfg.n_epochs):
         total_train_loss = 0
         total_validation_loss = 0
         
@@ -66,15 +74,15 @@ def train_on_device(cfg):
         if min_valid_loss > total_validation_loss:
             print('Model saved - validation loss decreased - {:.4f} --> {:.4f}'.format(min_valid_loss, total_validation_loss))
             min_valid_loss = total_validation_loss
-            torch.save(model.state_dict(), "model_neadvance.pckl")
+            torch.save(model.state_dict(), "model_color.pckl")
         
-        print('epoch [{}/{}], loss:{:.4f}'.format(epoch+1, num_epochs, total_train_loss))
+        print('epoch [{}/{}], loss:{:.4f}'.format(epoch+1, cfg.n_epochs, total_train_loss))
 
-    threshold = get_threshold(threshold_dataset,model)
+    threshold = get_threshold(threshold_dataset,model,cfg)
     print(threshold) 
 
 # parse argument variables
 cfg = Config().parse()
 
 with torch.cuda.device(0):
-        train_on_device(cfg)
+    train_on_device(cfg)

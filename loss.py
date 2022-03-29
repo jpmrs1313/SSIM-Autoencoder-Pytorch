@@ -6,7 +6,7 @@ from math import exp
 
 class SSIM(nn.Module):
     def __init__(self,
-                 in_channels: int = 1,
+                 in_channels: int = 3,
                  window_size: int=11,
                  size_average:bool = True) -> None:
         """

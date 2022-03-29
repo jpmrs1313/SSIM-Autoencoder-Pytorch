@@ -34,12 +34,13 @@ class TrainDataset(Dataset):
 
 
 class TestDataset(Dataset):
-    def __init__(self,image_paths,mask_paths,image_shape):
+    def __init__(self,image_paths,mask_paths,image_shape,mask_shape):
         self.image_path = image_paths
         self.ground_truths = mask_paths
         self.images = sorted(glob.glob(image_paths+"/*/*.png"))
         self.masks = sorted(glob.glob(mask_paths+"/*/*.png"))
-        self.image_shape=image_shape
+        self.image_shape = image_shape
+        self.mask_shape = mask_shape
     
     def __len__(self):
         return len(self.images)
@@ -54,7 +55,7 @@ class TestDataset(Dataset):
 
     def transform_mask(self, mask_path):
         mask = io.imread(mask_path)
-        mask = transform.resize(mask, self.image_shape)
+        mask = transform.resize(mask, self.mask_shape)
 
         threshold = filters.threshold_otsu(mask) 
         mask = mask > threshold
