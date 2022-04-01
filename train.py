@@ -37,14 +37,8 @@ def train_on_device(cfg):
     min_valid_loss = np.inf
 
     learning_rate = 1e-3
-    if cfg.grayscale=="True":
-        print("grey scale")
-        image_shape = (cfg.image_size, cfg.image_size, 1)
-        n_channels=1
-    else:     
-        print("color scale")
-        image_shape = (cfg.image_size, cfg.image_size, 3)
-        n_channels=3
+    image_shape = (cfg.image_size, cfg.image_size, 3)
+    n_channels=3
 
     print(image_shape)
 
@@ -74,7 +68,7 @@ def train_on_device(cfg):
         if min_valid_loss > total_validation_loss:
             print('Model saved - validation loss decreased - {:.4f} --> {:.4f}'.format(min_valid_loss, total_validation_loss))
             min_valid_loss = total_validation_loss
-            torch.save(model.state_dict(), "model_color.pckl")
+            torch.save(model.state_dict(), "model.pckl")
         
         print('epoch [{}/{}], loss:{:.4f}'.format(epoch+1, cfg.n_epochs, total_train_loss))
 

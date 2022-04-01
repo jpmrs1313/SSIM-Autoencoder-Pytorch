@@ -3,8 +3,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 from skimage.metrics import structural_similarity as ssim
 import sklearn.metrics as metrics
-from skimage.segmentation import join_segmentations, mark_boundaries, clear_border
-from skimage.morphology import disk, opening
+from skimage.segmentation import mark_boundaries, clear_border
+from skimage import morphology
 from skimage.measure import label, regionprops
 
 def split_data(dataset):
@@ -32,7 +32,9 @@ def split_data(dataset):
 def get_threshold(dataset,model,cfg):
     total_rec= []
     for i_batch, batch in enumerate(dataset): 
-            residual_maps = get_residual_map(batch['image'],model,cfg)
+            image_batch = batch["image"].cuda()
+            image_batch = image_batch.float().cuda()
+            results,residual_maps = get_residual_map(image_batch,model,cfg)
             total_rec.extend(residual_maps)
          
     total_rec = np.array(total_rec)
@@ -45,57 +47,15 @@ def get_residual_map(batch, model,cfg):
     results =  model(batch)
 
     for image,result in zip(batch,results):
-        if cfg.grayscale=="True":
-            image = image.cpu().detach().numpy()
-            image = np.squeeze(image)
-            result = result.cpu().detach().numpy()
-            result = np.squeeze(result)
-            residual_map = 1 - ssim(image,result, win_size=11, full=True)[1]
-        else:
-            image=image.permute(1,2,0)
-            image = image.cpu().detach().numpy()
-            result=result.permute(1,2,0)
-            result = result.cpu().detach().numpy()
-            residual_map = ssim(image, result, win_size=11, full=True, multichannel=True)[1]
-            residual_map = 1 - np.mean(residual_map, axis=2)
+        image=image.permute(1,2,0)
+        image = image.cpu().detach().numpy()
+        result=result.permute(1,2,0)
+        result = result.cpu().detach().numpy()
+        residual_map = ssim(image, result, win_size=11, full=True, multichannel=True)[1]
+        residual_map = 1 - np.mean(residual_map, axis=2)
         residual_maps.append(residual_map)
 
     return results, residual_maps
-
-def plot_images(image,prediction,true_mask,pred_mask, residual):
-
-    image=image.transpose(1,2,0)
-    image=np.squeeze(image)
-
-    true_mask=true_mask.transpose(1,2,0)
-    true_mask=np.squeeze(true_mask)
-    
-    true_mask=true_mask.astype(int)
-    pred_mask=pred_mask.astype(int)
-
-    true_boundary = mark_boundaries(image,true_mask)
-    pred_boundary = mark_boundaries(image,pred_mask)
-
-    fig = plt.figure(figsize=(10, 7))
-    rows = 1
-    columns = 3
-    
-    fig.add_subplot(rows, columns, 1)
-    plt.imshow(true_boundary)
-    plt.title("Image")
-    plt.axis("off")
-
-    fig.add_subplot(rows, columns, 2)
-    plt.imshow(residual)
-    plt.title("Anomaly Map")
-    plt.axis("off")
-
-    fig.add_subplot(rows, columns, 3)
-    plt.imshow(pred_boundary)
-    plt.title("Defects Localization")
-    plt.axis("off")
-
-    plt.show()
 
 def compute_pro(super_mask,gt_mask):
     max_step = 1000
@@ -163,7 +123,7 @@ def compute_pro(super_mask,gt_mask):
     pros_mean_selected = pros_mean[idx]    
     return metrics.auc(fprs_selected, pros_mean_selected)
 
-def evaluate(y_trues,residuals,labels, threshold,cfg):
+def evaluate(y_trues,residuals,labels):
     residuals=np.array(residuals)
 
     score_label = np.max(residuals, axis=(1, 2))
@@ -176,11 +136,50 @@ def evaluate(y_trues,residuals,labels, threshold,cfg):
     print("Detection AUC: " + str(det_roc_auc))
     print("Segmentation AUC: " + str(seg_roc_auc))
 
-    pro = compute_pro(residuals,gt_mask)
-    
+    pro = compute_pro(residuals,gt_mask)  
     print("Segmentation PRO: " + str(pro) )
   
-   
+def visualize(test_image_list,gt_mask_list,super_mask,threshold):
+    kernel = morphology.disk(4)
 
+    max=0
+    for x in super_mask:
+        if x.max() > max: max=x.max()
+    scores_norm = 1.0/max
 
-  
+    for image, gt, map in zip (test_image_list,gt_mask_list,super_mask):
+        image = (image.transpose(1, 2, 0)* 255).astype(np.uint8)
+        gt = np.squeeze((gt.transpose(1, 2, 0)* 255).astype(np.uint8))
+
+        score_mask = np.zeros_like(map)
+        score_mask[map >  threshold] = 1.0
+        score_mask=clear_border(score_mask)
+        score_mask = morphology.opening(score_mask, kernel)
+        score_mask = (255.0*score_mask).astype(np.uint8)
+
+        true_boundary = mark_boundaries(image, gt, color=(1, 0, 0), mode='thick')
+        pred_boundary = mark_boundaries(image, score_mask, color=(1, 0, 0), mode='thick')
+        
+        score_map = (255.0*map*scores_norm).astype(np.uint8)
+
+        fig = plt.figure(figsize=(10, 7))
+        rows = 1
+        columns = 3
+        
+        fig.add_subplot(rows, columns, 1)
+        plt.imshow(true_boundary)
+        plt.title("Image")
+        plt.axis("off")
+
+        fig.add_subplot(rows, columns, 2)
+        plt.imshow(map)
+        plt.imshow(score_map, cmap='jet', alpha=0.5, interpolation='none')
+        plt.title("Score Map")
+        plt.axis("off")
+
+        fig.add_subplot(rows, columns, 3)
+        plt.imshow(pred_boundary)
+        plt.title("Predicted Mask")
+        plt.axis("off")
+
+        plt.show()
